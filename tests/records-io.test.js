@@ -10,6 +10,12 @@ test('recordKey：題庫與牌數分開記', () => {
   assert.notEqual(recordKey('a', 16), recordKey('b', 16));
 });
 
+test('recordKey：記憶模式與一般模式分開，一般模式的 key 不變', () => {
+  assert.equal(recordKey('b', 16), 'b|16');
+  assert.equal(recordKey('b', 16, false), 'b|16');
+  assert.notEqual(recordKey('b', 16, true), recordKey('b', 16));
+});
+
 test('updateRecord：第一次兩項都算新紀錄', () => {
   const r = updateRecord(null, { moves: 12, timeMs: 30000 });
   assert.deepEqual(r, { record: { bestMoves: 12, bestTimeMs: 30000 }, newMoves: true, newTime: true });

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { seededRng, shuffle } from '../src/game/rng.js';
 import { buildDeck } from '../src/game/deck.js';
-import { createGame, flip, resolve, canFlip, needsResolve } from '../src/game/state.js';
+import { createGame, flip, resolve, canFlip, needsResolve, endPreview } from '../src/game/state.js';
 import { rankPlayers } from '../src/game/rank.js';
 
 const text = (value) => ({ type: 'text', value });
@@ -152,4 +152,22 @@ test('rankPlayers：同分並列、下一名跳號', () => {
 test('rankPlayers：全部同分都是第 1 名', () => {
   const r = rankPlayers([{ name: 'a', pairs: 0 }, { name: 'b', pairs: 0 }]);
   assert.deepEqual(r.map((p) => p.rank), [1, 1]);
+});
+
+test('記憶時間：預覽期間不能翻牌，endPreview 後才能玩', () => {
+  const g = createGame({ cards: fixedCards(), preview: true });
+  assert.equal(g.previewing, true);
+  assert.equal(canFlip(g, 0), false);
+  assert.equal(flip(g, 0), g);
+  const started = endPreview(g);
+  assert.equal(started.previewing, false);
+  assert.equal(canFlip(started, 0), true);
+  assert.equal(started.moves, 0);
+  assert.equal(g.previewing, true, '不改動原狀態');
+});
+
+test('記憶時間：預設關閉；沒有預覽時 endPreview 原樣回傳', () => {
+  const g = createGame({ cards: fixedCards() });
+  assert.equal(g.previewing, false);
+  assert.equal(endPreview(g), g);
 });

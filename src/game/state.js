@@ -1,8 +1,9 @@
 // 遊戲狀態：全部是純函式，回傳新狀態，不改動傳入的 state。
 // 翻第二張後停在「待判定」（flipped.length === 2），由呼叫端在動畫結束後呼叫 resolve。
 // 這樣規則裡沒有計時器，UI 想等多久都行。
+// 記憶時間模式：preview 為 true 時牌先全部亮出（previewing），期間不能翻牌，由 UI 在倒數結束後呼叫 endPreview。
 
-export function createGame({ cards, players = ['玩家 1'], chainOnMatch = true }) {
+export function createGame({ cards, players = ['玩家 1'], chainOnMatch = true, preview = false }) {
   if (cards.length === 0 || cards.length % 2 !== 0) {
     throw new RangeError('牌數必須是正偶數');
   }
@@ -16,12 +17,13 @@ export function createGame({ cards, players = ['玩家 1'], chainOnMatch = true 
     chainOnMatch,
     lastResult: null, // 'match' | 'miss'，供音效用
     finished: false,
+    previewing: preview,
   };
 }
 
 export function canFlip(state, index) {
   const card = state.cards[index];
-  return !state.finished && card !== undefined && card.status === 'down' && state.flipped.length < 2;
+  return !state.finished && !state.previewing && card !== undefined && card.status === 'down' && state.flipped.length < 2;
 }
 
 export function flip(state, index) {
@@ -35,6 +37,10 @@ export function flip(state, index) {
     moves: flipped.length === 2 ? state.moves + 1 : state.moves,
     lastResult: null,
   };
+}
+
+export function endPreview(state) {
+  return state.previewing ? { ...state, previewing: false } : state;
 }
 
 export function needsResolve(state) {

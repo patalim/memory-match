@@ -1,5 +1,5 @@
 import { buildDeck } from '../game/deck.js';
-import { createGame, flip, resolve, needsResolve } from '../game/state.js';
+import { createGame, flip, resolve, needsResolve, endPreview } from '../game/state.js';
 import { rankPlayers } from '../game/rank.js';
 import { formatTime } from '../game/layout.js';
 import { loadSettings, saveSettings } from '../store/settings.js';
@@ -38,6 +38,8 @@ async function showSetup() {
       }));
 
     let size = settings.size;
+    let memorySeconds = Number(settings.memorySeconds) || 0;
+    const memoryGroup = radioGroup('memory', [[0, '關閉'], [3, '3 秒'], [5, '5 秒'], [10, '10 秒']], memorySeconds, (v) => { memorySeconds = Number(v); }, 'compact');
     const sizeGroup = radioGroup('size', [['4', '4×4（8 組）'], ['6', '6×6（18 組）'], ['custom', '自選']], size, (v) => { size = v; refresh(); });
     const playerGroup = radioGroup('players', Array.from({ length: MAX_PLAYERS }, (_, i) => [i + 1, `${i + 1} 人`]), playerCount, (v) => { playerCount = Number(v); refresh(); }, 'compact');
     customInput.value = settings.customPairs;
@@ -67,11 +69,11 @@ async function showSetup() {
 
     startBtn.addEventListener('click', () => {
       const players = names.slice(0, playerCount).map((n, i) => n.trim() || `玩家 ${i + 1}`);
-      const next = { ...settings, bankId: bank.id, size, customPairs: Number(customInput.value) || settings.customPairs, players, chainOnMatch: chain.checked, sound: sound.checked };
+      const next = { ...settings, bankId: bank.id, size, customPairs: Number(customInput.value) || settings.customPairs, players, chainOnMatch: chain.checked, memorySeconds, sound: sound.checked };
       saveSettings(next);
       setSoundEnabled(next.sound);
       play('flip'); // 在使用者操作內啟動 AudioContext
-      startGame(bank, pairCount(), players, next.chainOnMatch);
+      startGame(bank, pairCount(), { players, chainOnMatch: next.chainOnMatch, memorySeconds });
     });
 
     app.append(h('section', { class: 'setup' },
@@ -82,6 +84,7 @@ async function showSetup() {
       h('fieldset', { class: 'field' }, h('legend', {}, '牌數'), sizeGroup,
         h('div', { class: 'inline', style: 'margin-top:10px' }, h('label', { for: 'custom' }, '自選組數：'), customInput)),
       h('fieldset', { class: 'field' }, h('legend', {}, '玩家人數'), playerGroup, h('div', { style: 'margin-top:10px' }, nameBox)),
+      h('fieldset', { class: 'field' }, h('legend', {}, '記憶時間（開局先看幾秒）'), memoryGroup),
       h('div', { class: 'field' },
         h('label', { class: 'inline' }, chain, '配對成功可再翻一次（多人時）'),
         h('label', { class: 'inline' }, sound, '音效')),
@@ -91,20 +94,26 @@ async function showSetup() {
 }
 
 // ---------------- 遊戲畫面 ----------------
-function startGame(bank, pairs, players, chainOnMatch) {
+function startGame(bank, pairs, opts) {
+  const { players, chainOnMatch, memorySeconds = 0 } = opts;
   show(() => {
-    let state = createGame({ cards: buildDeck(bank.pairs, pairs), players, chainOnMatch });
+    let state = createGame({ cards: buildDeck(bank.pairs, pairs), players, chainOnMatch, preview: memorySeconds > 0 });
     let startedAt = null;
     let finalMs = 0;
     let timerId = null;
     let resolveId = null;
     let resultId = null;
+    let previewId = null;
+    let previewLeft = memorySeconds;
 
     const moves = h('span', { class: 'stat' });
     const time = h('span', { class: 'stat' });
     const scores = h('div', { class: 'scores', 'aria-live': 'polite' });
     const soundBtn = h('button', { type: 'button' });
     const wrap = h('div', { class: 'board-wrap' });
+    const previewText = h('span', { role: 'status' });
+    const preview = h('div', { class: 'preview' }, previewText,
+      h('button', { type: 'button', class: 'primary', onclick: () => finishPreview() }, '開始！'));
 
     const elapsed = () => (startedAt == null ? 0 : (state.finished ? finalMs : performance.now() - startedAt));
 
@@ -131,7 +140,8 @@ function startGame(bank, pairs, players, chainOnMatch) {
         h('div', { class: 'hud' },
           h('button', { type: 'button', onclick: leave }, '← 回設定'),
           moves, time, h('span', { class: 'spacer' }), soundBtn),
-        state.players.length > 1 ? scores : null),
+        state.players.length > 1 ? scores : null,
+        state.previewing ? preview : null),
       wrap));
 
     soundBtn.addEventListener('click', () => {
@@ -159,6 +169,16 @@ function startGame(bank, pairs, players, chainOnMatch) {
       }
     });
 
+    function finishPreview() {
+      if (!state.previewing) return;
+      clearInterval(previewId);
+      state = endPreview(state);
+      preview.remove();
+      play('flip');
+      board.update(state);
+      renderHud();
+    }
+
     function doResolve() {
       state = resolve(state);
       board.update(state);
@@ -175,11 +195,12 @@ function startGame(bank, pairs, players, chainOnMatch) {
 
     // 單人局：顯示這局成績，並與「題庫＋牌數」的最佳紀錄比較。
     function singleResult() {
-      const { record, newMoves, newTime } = recordResult(bank.id, state.cards.length, { moves: state.moves, timeMs: finalMs });
+      const { record, newMoves, newTime } = recordResult(bank.id, state.cards.length, { moves: state.moves, timeMs: finalMs }, memorySeconds > 0);
       const row = (label, value, isNew, best) =>
         h('li', {}, h('span', {}, label),
           h('span', {}, value, h('small', { class: isNew ? 'badge' : 'muted' }, isNew ? ' 🏆 新紀錄！' : `　最佳 ${best}`)));
       return h('ul', { class: 'ranking' },
+        memorySeconds > 0 ? h('li', {}, h('span', { class: 'muted' }, '記憶模式的紀錄與一般模式分開計算')) : null,
         row('步數', String(state.moves), newMoves, String(record.bestMoves)),
         row('時間', formatTime(finalMs), newTime, formatTime(record.bestTimeMs)));
     }
@@ -193,7 +214,7 @@ function startGame(bank, pairs, players, chainOnMatch) {
       const dialog = h('dialog', {},
         h('h2', {}, multi ? '🎉 遊戲結束' : '🎉 過關！'), body,
         h('div', { class: 'dialog-actions' },
-          h('button', { class: 'primary', type: 'button', onclick: () => startGame(bank, pairs, players, chainOnMatch) }, '再玩一次'),
+          h('button', { class: 'primary', type: 'button', onclick: () => startGame(bank, pairs, opts) }, '再玩一次'),
           h('button', { type: 'button', onclick: showSetup }, '回設定')));
       app.append(dialog);
       dialog.showModal();
@@ -203,8 +224,19 @@ function startGame(bank, pairs, players, chainOnMatch) {
       clearInterval(timerId);
       clearTimeout(resolveId);
       clearTimeout(resultId);
+      clearInterval(previewId);
       board.destroy();
     });
+    if (state.previewing) {
+      board.update(state); // 全部亮出
+      const tick = () => { previewText.textContent = `記住牌的位置！${previewLeft} 秒後蓋牌`; };
+      tick();
+      previewId = setInterval(() => {
+        previewLeft -= 1;
+        if (previewLeft <= 0) finishPreview();
+        else tick();
+      }, 1000);
+    }
     renderHud();
   });
 }

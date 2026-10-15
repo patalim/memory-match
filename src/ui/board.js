@@ -68,9 +68,10 @@ export function createBoard(container, cards, onPick) {
     update(state) {
       state.cards.forEach((c, i) => {
         const el = els[i];
-        if (el.dataset.status === c.status) return;
-        el.dataset.status = c.status;
-        el.setAttribute('aria-label', c.status === 'down' ? '蓋著的牌' : `已翻開：${c.content.type === 'image' ? '圖片' : c.content.value}`);
+        const status = state.previewing ? 'up' : c.status; // 記憶時間：全部亮出
+        if (el.dataset.status === status) return;
+        el.dataset.status = status;
+        el.setAttribute('aria-label', status === 'down' ? '蓋著的牌' : `已翻開：${c.content.type === 'image' ? '圖片' : c.content.value}`);
       });
     },
     focusFirstDown(state) {
