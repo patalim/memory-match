@@ -1,0 +1,115 @@
+:root {
+  --bg: #fffaf0;
+  --ink: #1b1b1b;
+  --panel: #ffffff;
+  --line: #1b1b1b;
+  --accent: #0b5fff;
+  --accent-ink: #ffffff;
+  --card-back: #0b5fff;
+  --card-front: #ffffff;
+  --matched: #c8f2cf;
+  --warn: #b00020;
+  font-size: 18px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161a;
+    --ink: #f4f4f4;
+    --panel: #20242b;
+    --line: #f4f4f4;
+    --accent: #6ea0ff;
+    --accent-ink: #0b0b0b;
+    --card-back: #3b6fe0;
+    --card-front: #262b33;
+    --matched: #1f5a2c;
+    --warn: #ff8a9a;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: system-ui, "Microsoft JhengHei", "PingFang TC", sans-serif;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+#app { height: 100%; display: flex; flex-direction: column; padding: 12px; overflow-y: auto; }
+
+button, select, input { font: inherit; color: inherit; }
+button {
+  min-height: 52px; min-width: 52px; padding: 8px 20px;
+  border: 3px solid var(--line); border-radius: 14px;
+  background: var(--panel); font-weight: 700; cursor: pointer;
+}
+button.primary { background: var(--accent); color: var(--accent-ink); }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 4px solid var(--accent); outline-offset: 2px; }
+input[type="text"], input[type="number"], select {
+  min-height: 48px; padding: 6px 12px; border: 3px solid var(--line); border-radius: 12px; background: var(--panel);
+}
+
+/* ---- 設定畫面 ---- */
+.setup { max-width: 640px; width: 100%; margin: 0 auto; padding-bottom: 16px; }
+.setup h1 { font-size: 2.2rem; margin: 8px 0 16px; text-align: center; }
+.field { margin: 0 0 18px; padding: 0; border: 0; }
+.field > legend, .field > label.title { display: block; font-weight: 800; margin-bottom: 8px; padding: 0; }
+.choices { display: flex; flex-wrap: wrap; gap: 10px; }
+.choices label {
+  flex: 1 1 120px; display: flex; align-items: center; justify-content: center;
+  min-height: 52px; padding: 8px 12px; border: 3px solid var(--line); border-radius: 14px;
+  background: var(--panel); font-weight: 700; cursor: pointer; text-align: center;
+}
+.choices label:has(input:checked) { background: var(--accent); color: var(--accent-ink); }
+.choices.compact label { flex: 1 1 64px; padding: 8px 4px; }
+.choices input { position: absolute; opacity: 0; pointer-events: none; }
+.choices label:has(input:focus-visible) { outline: 4px solid var(--accent); outline-offset: 2px; }
+.inline { display: flex; align-items: center; gap: 10px; min-height: 48px; font-weight: 700; }
+.inline input[type="checkbox"] { width: 28px; height: 28px; }
+.names { display: grid; gap: 8px; }
+.names input { width: 100%; }
+.hint { color: var(--warn); font-weight: 700; min-height: 1.4em; margin: 0 0 8px; }
+.setup .start { width: 100%; min-height: 64px; font-size: 1.4rem; }
+
+/* ---- 遊戲畫面 ---- */
+.hud { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 8px; font-weight: 800; font-size: 1.1rem; }
+.hud .stat { padding: 4px 12px; border: 3px solid var(--line); border-radius: 12px; background: var(--panel); }
+.hud .spacer { flex: 1; }
+.scores { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.score { padding: 4px 14px; border: 3px solid var(--line); border-radius: 12px; background: var(--panel); font-weight: 700; }
+.score.turn { background: var(--accent); color: var(--accent-ink); }
+
+.board-wrap { flex: 1; min-height: 0; display: grid; place-items: center; }
+.board { display: grid; gap: var(--gap, 8px); justify-content: center; align-content: center; }
+.card {
+  width: var(--card); height: var(--card); padding: 0; border: 0; background: none;
+  perspective: 800px; container-type: inline-size; min-width: 0; min-height: 0;
+}
+.card .inner {
+  position: relative; display: block; width: 100%; height: 100%;
+  transition: transform 0.35s; transform-style: preserve-3d;
+}
+.card[data-status="up"] .inner, .card[data-status="matched"] .inner { transform: rotateY(180deg); }
+.card .face {
+  position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden;
+  border: 3px solid var(--line); border-radius: 14px; backface-visibility: hidden;
+}
+.card .back { background: var(--card-back); color: #fff; font-size: 40cqw; }
+.card .front { background: var(--card-front); transform: rotateY(180deg); padding: 4%; }
+.card[data-status="matched"] .front { background: var(--matched); }
+.card .front span { font-size: 36cqw; line-height: 1.15; text-align: center; overflow-wrap: anywhere; font-weight: 800; }
+.card .front span.long { font-size: 20cqw; }
+.card .front img { width: 100%; height: 100%; object-fit: contain; }
+.card:disabled { cursor: default; }
+.card:focus-visible .face { outline: 4px solid var(--accent); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) { .card .inner { transition: none; } }
+
+/* ---- 結果 ---- */
+dialog { max-width: min(92vw, 520px); border: 4px solid var(--line); border-radius: 20px; background: var(--panel); color: var(--ink); padding: 24px; }
+dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
+dialog h2 { margin-top: 0; font-size: 1.8rem; text-align: center; }
+.ranking { list-style: none; padding: 0; margin: 0 0 16px; font-size: 1.3rem; font-weight: 700; }
+.ranking li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 2px solid var(--line); }
+.dialog-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.dialog-actions button { flex: 1 1 140px; }
