@@ -2,7 +2,7 @@
 // bank = { id, name, pairs: [{ id, a, b }], updatedAt }
 // 牌面 content = { type: 'text', value } 或 { type: 'image', value: dataURL }
 
-export const LIMITS = { nameMax: 40, textMax: 40, imageDataUrlMax: 3_000_000 };
+export const LIMITS = { nameMax: 40, textMax: 40, imageDataUrlMax: 3_000_000, pairsMax: 500 };
 
 const IMAGE_URL = /^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 
@@ -44,6 +44,7 @@ export function validateBank(bank, { minPairs = 0 } = {}) {
   else if ([...bank.name].length > LIMITS.nameMax) errors.push(`題庫名稱不可超過 ${LIMITS.nameMax} 字`);
   if (!Array.isArray(bank.pairs)) return [...errors, '缺少配對清單'];
   if (bank.pairs.length < minPairs) errors.push(`至少需要 ${minPairs} 組配對`);
+  if (bank.pairs.length > LIMITS.pairsMax) return [...errors, `配對不可超過 ${LIMITS.pairsMax} 組`];
   const seen = new Set();
   bank.pairs.forEach((p, i) => {
     const n = i + 1;

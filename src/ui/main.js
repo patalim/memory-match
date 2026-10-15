@@ -3,6 +3,7 @@ import { createGame, flip, resolve, needsResolve } from '../game/state.js';
 import { rankPlayers } from '../game/rank.js';
 import { formatTime } from '../game/layout.js';
 import { loadSettings, saveSettings } from '../store/settings.js';
+import { recordResult } from '../store/records.js';
 import { createBoard } from './board.js';
 import { play, setSoundEnabled } from './audio.js';
 import { loadAllBanks } from '../store/banks.js';
@@ -164,14 +165,23 @@ function startGame(bank, pairs, players, chainOnMatch) {
       if (state.finished) resultId = setTimeout(showResult, 600);
     }
 
+    // 單人局：顯示這局成績，並與「題庫＋牌數」的最佳紀錄比較。
+    function singleResult() {
+      const { record, newMoves, newTime } = recordResult(bank.id, state.cards.length, { moves: state.moves, timeMs: finalMs });
+      const row = (label, value, isNew, best) =>
+        h('li', {}, h('span', {}, label),
+          h('span', {}, value, h('small', { class: isNew ? 'badge' : 'muted' }, isNew ? ' 🏆 新紀錄！' : `　最佳 ${best}`)));
+      return h('ul', { class: 'ranking' },
+        row('步數', String(state.moves), newMoves, String(record.bestMoves)),
+        row('時間', formatTime(finalMs), newTime, formatTime(record.bestTimeMs)));
+    }
+
     function showResult() {
       const multi = state.players.length > 1;
       const body = multi
         ? h('ol', { class: 'ranking' }, rankPlayers(state.players).map((p) =>
             h('li', {}, h('span', {}, `第 ${p.rank} 名　${p.name}`), h('span', {}, `${p.pairs} 組`))))
-        : h('ul', { class: 'ranking' },
-            h('li', {}, h('span', {}, '步數'), h('span', {}, String(state.moves))),
-            h('li', {}, h('span', {}, '時間'), h('span', {}, formatTime(finalMs))));
+        : singleResult();
       const dialog = h('dialog', {},
         h('h2', {}, multi ? '🎉 遊戲結束' : '🎉 過關！'), body,
         h('div', { class: 'dialog-actions' },

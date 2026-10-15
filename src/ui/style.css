@@ -151,3 +151,6 @@ button.danger { color: var(--warn); border-color: var(--warn); }
   .pair-row > .danger { justify-self: end; }
   .pair-no { grid-row: 1; }
 }
+
+.badge { color: var(--accent); font-weight: 800; }
+@media (max-width: 480px) { .bank-row .row-actions { flex-wrap: wrap; } }

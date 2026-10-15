@@ -2,6 +2,20 @@ import { h, app, show } from './dom.js';
 import { loadAllBanks, saveBank, removeBank } from '../store/banks.js';
 import { blankPair, cloneBank, createBank, isValidContent, validateBank, LIMITS } from '../store/bank-model.js';
 import { processImageFile } from './image.js';
+import { exportBank, parseImport } from '../store/bank-io.js';
+
+const MAX_IMPORT_BYTES = 100 * 1024 * 1024;
+
+function downloadBank(bank) {
+  const blob = new Blob([exportBank(bank)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const safeName = bank.name.replace(/[\\/:*?"<>|\s]+/g, '_').slice(0, 40) || '題庫';
+  const a = h('a', { href: url, download: `${safeName}.json` });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
 
 // ---------------- 題庫清單 ----------------
 export async function showBankList({ onBack }) {
@@ -9,6 +23,27 @@ export async function showBankList({ onBack }) {
   show(() => {
     const refresh = () => showBankList({ onBack });
     const fail = (e) => alert(`操作失敗：${e.message}`);
+
+    const importInput = h('input', { type: 'file', accept: '.json,application/json', hidden: true });
+    importInput.addEventListener('change', async () => {
+      const file = importInput.files[0];
+      importInput.value = '';
+      if (!file) return;
+      if (file.size > MAX_IMPORT_BYTES) return alert('檔案太大，無法匯入（上限 100 MB）');
+      const result = parseImport(await file.text());
+      if (!result.ok) {
+        const shown = result.errors.slice(0, 5).join('\n');
+        const more = result.errors.length > 5 ? `\n…還有 ${result.errors.length - 5} 項問題` : '';
+        return alert(`匯入失敗，題庫沒有任何變動：\n${shown}${more}`);
+      }
+      try {
+        await saveBank(result.bank);
+        alert(`已匯入「${result.bank.name}」（${result.bank.pairs.length} 組配對）`);
+        refresh();
+      } catch (e) {
+        fail(e);
+      }
+    });
 
     const rows = banks.map((bank) =>
       h('li', { class: 'bank-row' },
@@ -20,6 +55,7 @@ export async function showBankList({ onBack }) {
           storageOk ? h('button', { type: 'button', onclick: async () => {
             try { await saveBank(cloneBank(bank, `${bank.name}（副本）`)); refresh(); } catch (e) { fail(e); }
           } }, '複製') : null,
+          h('button', { type: 'button', onclick: () => downloadBank(bank) }, '匯出'),
           bank.builtin ? null : h('button', { type: 'button', class: 'danger', onclick: async () => {
             if (!confirm(`確定要刪除「${bank.name}」嗎？刪除後無法復原。`)) return;
             try { await removeBank(bank.id); refresh(); } catch (e) { fail(e); }
@@ -28,11 +64,14 @@ export async function showBankList({ onBack }) {
     app.append(h('section', { class: 'setup' },
       h('div', { class: 'editor-bar' },
         h('button', { type: 'button', onclick: onBack }, '← 回設定'),
-        storageOk ? h('button', { type: 'button', class: 'primary', onclick: () => {
-          const bank = createBank('新題庫');
-          bank.pairs.push(blankPair(), blankPair());
-          showBankEditor(bank, { onDone: refresh, isNew: true });
-        } }, '＋ 新增題庫') : null),
+        storageOk ? h('div', { class: 'row-actions' },
+          h('button', { type: 'button', onclick: () => importInput.click() }, '匯入'),
+          importInput,
+          h('button', { type: 'button', class: 'primary', onclick: () => {
+            const bank = createBank('新題庫');
+            bank.pairs.push(blankPair(), blankPair());
+            showBankEditor(bank, { onDone: refresh, isNew: true });
+          } }, '＋ 新增題庫')) : null),
       h('h1', {}, '題庫管理'),
       storageOk ? null : h('p', { class: 'hint' }, '這個瀏覽器無法儲存題庫（可能是無痕模式或被封鎖），目前只能使用內建題庫。'),
       h('ul', { class: 'bank-list' }, rows),
