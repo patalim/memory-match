@@ -119,12 +119,20 @@ function startGame(bank, pairs, players, chainOnMatch) {
       }
     }
 
-    app.append(
-      h('div', { class: 'hud' },
-        h('button', { type: 'button', onclick: showSetup }, '← 回設定'),
-        moves, time, h('span', { class: 'spacer' }), soundBtn),
-      state.players.length > 1 ? scores : null,
-      wrap);
+    // 孩子可能不小心點到「回設定」，遊戲進行中先確認。
+    const leave = () => {
+      if (startedAt != null && !state.finished && !confirm('遊戲還沒結束，確定要離開嗎？')) return;
+      showSetup();
+    };
+
+    // 直向：資訊列在牌桌上方；橫向矮螢幕（平板橫放）：資訊列移到左側，牌桌吃滿高度。
+    app.append(h('div', { class: 'game' },
+      h('div', { class: 'panel' },
+        h('div', { class: 'hud' },
+          h('button', { type: 'button', onclick: leave }, '← 回設定'),
+          moves, time, h('span', { class: 'spacer' }), soundBtn),
+        state.players.length > 1 ? scores : null),
+      wrap));
 
     soundBtn.addEventListener('click', () => {
       const s = loadSettings();
