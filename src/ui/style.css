@@ -113,3 +113,41 @@ dialog h2 { margin-top: 0; font-size: 1.8rem; text-align: center; }
 .ranking li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 2px solid var(--line); }
 .dialog-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .dialog-actions button { flex: 1 1 140px; }
+
+/* ---- 題庫管理與編輯 ---- */
+.bank-pick { display: flex; gap: 10px; }
+.bank-pick select { flex: 1; min-width: 0; }
+.muted { color: color-mix(in srgb, var(--ink) 65%, transparent); font-weight: 600; }
+.hint.small { min-height: 0; margin: 4px 0 0; font-size: 0.85rem; }
+.tag { margin: 0 8px; padding: 2px 10px; border: 2px solid var(--line); border-radius: 999px; font-size: 0.8rem; font-weight: 800; }
+button.danger { color: var(--warn); border-color: var(--warn); }
+
+.bank-list { list-style: none; padding: 0; margin: 0 0 16px; display: grid; gap: 10px; }
+.bank-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; border: 3px solid var(--line); border-radius: 14px; background: var(--panel); }
+.bank-info { display: flex; flex-wrap: wrap; align-items: center; }
+.bank-info .muted { margin-left: 8px; }
+.row-actions { display: flex; gap: 8px; }
+
+.editor-bar { position: sticky; top: -12px; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: -12px -12px 12px; padding: 12px; background: var(--bg); border-bottom: 3px solid var(--line); }
+.editor-bar .hint, .editor-bar .muted { margin: 0; min-height: 0; flex: 1; text-align: center; }
+.editor { max-width: 860px; }
+.pair-list { list-style: none; padding: 0; margin: 10px 0 16px; display: grid; gap: 12px; }
+.pair-row { display: grid; grid-template-columns: auto 1fr auto 1fr auto; align-items: start; gap: 10px; padding: 12px; border: 3px solid var(--line); border-radius: 14px; background: var(--panel); }
+.pair-row.incomplete { border-color: var(--warn); }
+.pair-no { font-weight: 800; min-width: 1.5em; padding-top: 10px; }
+.pair-link { font-size: 1.6rem; font-weight: 800; padding-top: 4px; }
+.side { display: grid; gap: 8px; min-width: 0; }
+.side input[type="text"] { width: 100%; }
+.seg { display: flex; gap: 6px; }
+.seg button { min-height: 40px; padding: 4px 14px; flex: 1; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.image-pick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.thumb { width: 72px; height: 72px; object-fit: contain; border: 3px solid var(--line); border-radius: 10px; background: #fff; }
+.add-pair { width: 100%; min-height: 60px; border-style: dashed; }
+@media (max-width: 640px) {
+  .pair-row { grid-template-columns: auto 1fr; }
+  .pair-link { display: none; }
+  .pair-row > .side, .pair-row > .danger { grid-column: 2; }
+  .pair-row > .danger { justify-self: end; }
+  .pair-no { grid-row: 1; }
+}

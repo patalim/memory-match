@@ -1,4 +1,3 @@
-import { sampleBanks } from '../data/samples.js';
 import { buildDeck } from '../game/deck.js';
 import { createGame, flip, resolve, needsResolve } from '../game/state.js';
 import { rankPlayers } from '../game/rank.js';
@@ -6,39 +5,19 @@ import { formatTime } from '../game/layout.js';
 import { loadSettings, saveSettings } from '../store/settings.js';
 import { createBoard } from './board.js';
 import { play, setSoundEnabled } from './audio.js';
+import { loadAllBanks } from '../store/banks.js';
+import { app, h, show, onLeave } from './dom.js';
+import { showBankList } from './editor.js';
 
-const app = document.getElementById('app');
 const MAX_PLAYERS = 6;
 const MATCH_DELAY = 700;
 const MISS_DELAY = 1100;
 
-// 之後題庫改存 IndexedDB 時，只要換掉這個函式。
-const loadBanks = () => sampleBanks;
-
-function h(tag, props = {}, ...children) {
-  const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(props)) {
-    if (k === 'class') el.className = v;
-    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
-    else if (v !== false && v != null) el.setAttribute(k, v === true ? '' : v);
-  }
-  el.append(...children.flat().filter((c) => c != null));
-  return el;
-}
-
-let cleanup = () => {};
-function show(render) {
-  cleanup();
-  cleanup = () => {};
-  app.replaceChildren();
-  render();
-}
-
 // ---------------- 設定畫面 ----------------
-function showSetup() {
+async function showSetup() {
+  const { banks } = await loadAllBanks();
   show(() => {
     const settings = loadSettings();
-    const banks = loadBanks();
     let bank = banks.find((b) => b.id === settings.bankId) ?? banks[0];
     let playerCount = Math.min(settings.players.length, MAX_PLAYERS);
     const names = Array.from({ length: MAX_PLAYERS }, (_, i) => settings.players[i] ?? `玩家 ${i + 1}`);
@@ -96,7 +75,9 @@ function showSetup() {
 
     app.append(h('section', { class: 'setup' },
       h('h1', {}, '翻牌配對'),
-      h('div', { class: 'field' }, h('label', { class: 'title', for: 'bank' }, '題庫'), bankSelect),
+      h('div', { class: 'field' }, h('label', { class: 'title', for: 'bank' }, '題庫'),
+        h('div', { class: 'bank-pick' }, bankSelect,
+          h('button', { type: 'button', onclick: () => showBankList({ onBack: showSetup }) }, '題庫管理'))),
       h('fieldset', { class: 'field' }, h('legend', {}, '牌數'), sizeGroup,
         h('div', { class: 'inline', style: 'margin-top:10px' }, h('label', { for: 'custom' }, '自選組數：'), customInput)),
       h('fieldset', { class: 'field' }, h('legend', {}, '玩家人數'), playerGroup, h('div', { style: 'margin-top:10px' }, nameBox)),
@@ -200,12 +181,12 @@ function startGame(bank, pairs, players, chainOnMatch) {
       dialog.showModal();
     }
 
-    cleanup = () => {
+    onLeave(() => {
       clearInterval(timerId);
       clearTimeout(resolveId);
       clearTimeout(resultId);
       board.destroy();
-    };
+    });
     renderHud();
   });
 }
