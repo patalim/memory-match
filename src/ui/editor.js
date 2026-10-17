@@ -184,7 +184,7 @@ function showBankEditor(source, { onDone, isNew = false }) {
         h('button', { type: 'button', class: 'primary', onclick: save }, '儲存')),
       h('div', { class: 'field' }, h('label', { class: 'title' }, '題庫名稱', nameInput)),
       h('div', { class: 'field' },
-        h('p', { class: 'muted' }, '每一組配對有兩張牌，各自可以是文字或圖片：圖配圖、圖配字、字配字都可以，也能混用。'),
+        h('p', { class: 'muted' }, '每一組配對有兩張牌，各自可以是文字或圖片：圖配圖、圖配字、字配字都可以，也能混用。多個題目可以共用同一個答案（例如「3+4」「5+2」都配「7」）：各建一組，答案填一樣的，玩的時候牌面一樣的答案牌可以互換。'),
         count, list,
         h('button', { type: 'button', class: 'add-pair', onclick: () => {
           const pair = blankPair();

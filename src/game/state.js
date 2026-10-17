@@ -47,12 +47,35 @@ export function needsResolve(state) {
   return state.flipped.length === 2;
 }
 
+// 判定翻開的兩張牌 i、j 是否配對，回傳 { matched, cards }。
+// pairId 相同當然配對。pairId 不同但「牌面互相對得上」也算配對（多個題目共用同一個答案時，
+// 兩張一樣的答案牌可以互換）：此時把 j 與 i 原本的配對對象交換 pairId，
+// 讓每個 pairId 仍然剛好兩張、且確實是互相配對的牌，所以整副牌永遠配得完。
+function relabel(cards, i, j) {
+  const a = cards[i];
+  const b = cards[j];
+  if (a.pairId === b.pairId) return { matched: true, cards };
+  for (const [x, y] of [[a, b], [b, a]]) {
+    if (x.partnerKey == null || x.partnerKey !== y.key) continue;
+    const mate = cards.find((c) => c !== x && c.pairId === x.pairId);
+    if (!mate || mate.key !== y.key) continue;
+    const swapped = cards.map((c) => (c === y ? { ...c, pairId: mate.pairId } : c === mate ? { ...c, pairId: y.pairId } : c));
+    return { matched: true, cards: swapped };
+  }
+  return { matched: false, cards };
+}
+
+// 目前翻開的兩張牌會不會配對成功（UI 用來決定等多久再蓋牌）。
+export function isMatch(state) {
+  return needsResolve(state) && relabel(state.cards, state.flipped[0], state.flipped[1]).matched;
+}
+
 export function resolve(state) {
   if (!needsResolve(state)) return state;
   const [i, j] = state.flipped;
-  const matched = state.cards[i].pairId === state.cards[j].pairId;
+  const { matched, cards: relabeled } = relabel(state.cards, i, j);
   const status = matched ? 'matched' : 'down';
-  const cards = state.cards.map((c, k) => (k === i || k === j ? { ...c, status } : c));
+  const cards = relabeled.map((c, k) => (k === i || k === j ? { ...c, status } : c));
   const finished = cards.every((c) => c.status === 'matched');
   const players = matched
     ? state.players.map((p, k) => (k === state.current ? { ...p, pairs: p.pairs + 1 } : p))

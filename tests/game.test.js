@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { seededRng, shuffle } from '../src/game/rng.js';
 import { buildDeck } from '../src/game/deck.js';
-import { createGame, flip, resolve, canFlip, needsResolve, endPreview } from '../src/game/state.js';
+import { createGame, flip, resolve, canFlip, needsResolve, endPreview, isMatch } from '../src/game/state.js';
 import { rankPlayers } from '../src/game/rank.js';
 
 const text = (value) => ({ type: 'text', value });
@@ -170,4 +170,78 @@ test('記憶時間：預設關閉；沒有預覽時 endPreview 原樣回傳', ()
   const g = createGame({ cards: fixedCards() });
   assert.equal(g.previewing, false);
   assert.equal(endPreview(g), g);
+});
+
+// ---- 多個題目共用同一個答案：牌面一樣的答案牌可以互換 ----
+const sharedAnswerPairs = () => [
+  { id: 'p1', a: text('3+4'), b: text('7') },
+  { id: 'p2', a: text('5+2'), b: text('7') },
+  { id: 'p3', a: text('1+1'), b: text('2') },
+];
+const indexOfFace = (state, face) => state.cards.flatMap((c, i) => (c.content.value === face ? [i] : []));
+
+test('共用答案：題目配到任一張「7」都算對，且整副牌一定配得完', () => {
+  for (let seed = 1; seed <= 40; seed++) {
+    let g = createGame({ cards: buildDeck(sharedAnswerPairs(), 3, seededRng(seed)) });
+    const [q1] = indexOfFace(g, '3+4');
+    const [q2] = indexOfFace(g, '5+2');
+    const sevens = indexOfFace(g, '7');
+    // 故意讓 3+4 去配「屬於 5+2」的那張 7，兩種可能都試（依種子不同）
+    const wrongOwner = sevens.find((i) => g.cards[i].pairId !== g.cards[q1].pairId);
+    g = resolve(play(g, q1, wrongOwner));
+    assert.equal(g.lastResult, 'match', `seed ${seed}`);
+    const rest = sevens.find((i) => g.cards[i].status === 'down');
+    g = resolve(play(g, q2, rest));
+    assert.equal(g.lastResult, 'match', `seed ${seed}：剩下的題目和答案也要能配`);
+    g = resolve(play(g, ...indexOfFace(g, '1+1'), ...indexOfFace(g, '2')));
+    assert.equal(g.finished, true, `seed ${seed}`);
+    assert.equal(g.players[0].pairs, 3);
+  }
+});
+
+test('共用答案：每個 pairId 仍剛好兩張牌（交換後不會破壞牌堆）', () => {
+  let g = createGame({ cards: buildDeck(sharedAnswerPairs(), 3, seededRng(3)) });
+  const [q1] = indexOfFace(g, '3+4');
+  const wrong = indexOfFace(g, '7').find((i) => g.cards[i].pairId !== g.cards[q1].pairId);
+  g = resolve(play(g, q1, wrong));
+  const counts = Map.groupBy(g.cards, (c) => c.pairId);
+  assert.equal(counts.size, 3);
+  for (const cards of counts.values()) assert.equal(cards.length, 2);
+});
+
+test('共用答案：兩張「7」彼此、題目配別的答案都不算配對', () => {
+  const g = createGame({ cards: buildDeck(sharedAnswerPairs(), 3, seededRng(5)) });
+  const [s1, s2] = indexOfFace(g, '7');
+  assert.equal(isMatch(play(g, s1, s2)), false);
+  assert.equal(resolve(play(g, s1, s2)).lastResult, 'miss');
+  const [q1] = indexOfFace(g, '3+4');
+  const [two] = indexOfFace(g, '2');
+  assert.equal(isMatch(play(g, q1, two)), false);
+  assert.equal(isMatch(g), false, '沒翻兩張時不算');
+});
+
+test('共用答案：牌面比對忽略頭尾空白；一般一對一不受影響', () => {
+  const pairs = [{ id: 'p1', a: text('x'), b: text('7 ') }, { id: 'p2', a: text('y'), b: text(' 7')}];
+  let g = createGame({ cards: buildDeck(pairs, 2, seededRng(2)) });
+  const [x] = indexOfFace(g, 'x');
+  const other = g.cards.findIndex((c) => c.content.value.trim() === '7' && c.pairId !== g.cards[x].pairId);
+  assert.equal(resolve(play(g, x, other)).lastResult, 'match');
+  const plain = buildDeck(makePairs(4), 4, seededRng(9));
+  g = createGame({ cards: plain });
+  const [first] = [0];
+  const mate = g.cards.findIndex((c, i) => i !== first && c.pairId === g.cards[first].pairId);
+  assert.equal(isMatch(play(g, first, mate)), true);
+  const stranger = g.cards.findIndex((c) => c.pairId !== g.cards[first].pairId);
+  assert.equal(isMatch(play(g, first, stranger)), false);
+});
+
+test('共用答案：不改動傳入的狀態', () => {
+  const g = createGame({ cards: buildDeck(sharedAnswerPairs(), 3, seededRng(7)) });
+  const [q1] = indexOfFace(g, '3+4');
+  const wrong = indexOfFace(g, '7').find((i) => g.cards[i].pairId !== g.cards[q1].pairId);
+  const flipped = play(g, q1, wrong);
+  const snapshot = structuredClone(flipped);
+  resolve(flipped);
+  isMatch(flipped);
+  assert.deepEqual(flipped, snapshot);
 });

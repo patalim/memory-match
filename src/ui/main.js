@@ -1,5 +1,5 @@
 import { buildDeck } from '../game/deck.js';
-import { createGame, flip, resolve, needsResolve, endPreview } from '../game/state.js';
+import { createGame, flip, resolve, needsResolve, endPreview, isMatch } from '../game/state.js';
 import { rankPlayers } from '../game/rank.js';
 import { formatTime } from '../game/layout.js';
 import { loadSettings, saveSettings } from '../store/settings.js';
@@ -164,8 +164,7 @@ function startGame(bank, pairs, opts) {
       board.update(state);
       renderHud();
       if (needsResolve(state)) {
-        const willMatch = state.cards[state.flipped[0]].pairId === state.cards[state.flipped[1]].pairId;
-        resolveId = setTimeout(doResolve, willMatch ? MATCH_DELAY : MISS_DELAY);
+        resolveId = setTimeout(doResolve, isMatch(state) ? MATCH_DELAY : MISS_DELAY);
       }
     });
 
