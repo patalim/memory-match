@@ -16,17 +16,19 @@ function faceContent(content) {
   return span;
 }
 
-function makeCard(card, onPick) {
+function makeCard(card, onPick, numbered) {
   const el = document.createElement('button');
   el.type = 'button';
   el.className = 'card';
   el.dataset.status = 'down';
-  el.setAttribute('aria-label', '蓋著的牌');
+  el.setAttribute('aria-label', numbered ? `蓋著的牌 ${card.id + 1} 號` : '蓋著的牌');
   const inner = document.createElement('span');
   inner.className = 'inner';
   const back = document.createElement('span');
   back.className = 'face back';
-  back.textContent = '?';
+  // 牌背：問號，或依位置編號（讓小朋友翻錯時比較沒有挫折感，也方便老師喊「請翻 5 號」）。
+  back.textContent = numbered ? String(card.id + 1) : '?';
+  if (numbered) back.classList.add('numbered', `digits-${String(card.id + 1).length >= 3 ? 3 : 2}`);
   const front = document.createElement('span');
   front.className = 'face front';
   front.append(faceContent(card.content));
@@ -44,13 +46,13 @@ function makeCard(card, onPick) {
 }
 
 // container 內放牌桌；牌的邊長依可用空間與欄列數即時計算，直橫向都會填滿。
-export function createBoard(container, cards, onPick) {
+export function createBoard(container, cards, onPick, { numbered = false } = {}) {
   const { cols, rows } = gridSize(cards.length);
   const board = document.createElement('div');
   board.className = 'board';
   board.style.setProperty('--gap', `${GAP}px`);
   board.style.gridTemplateColumns = `repeat(${cols}, var(--card))`;
-  const els = cards.map((c) => makeCard(c, onPick));
+  const els = cards.map((c) => makeCard(c, onPick, numbered));
   board.append(...els);
   container.replaceChildren(board);
 
@@ -71,7 +73,7 @@ export function createBoard(container, cards, onPick) {
         const status = state.previewing ? 'up' : c.status; // 記憶時間：全部亮出
         if (el.dataset.status === status) return;
         el.dataset.status = status;
-        el.setAttribute('aria-label', status === 'down' ? '蓋著的牌' : `已翻開：${c.content.type === 'image' ? '圖片' : c.content.value}`);
+        el.setAttribute('aria-label', status === 'down' ? (numbered ? `蓋著的牌 ${c.id + 1} 號` : '蓋著的牌') : `已翻開：${c.content.type === 'image' ? '圖片' : c.content.value}`);
       });
     },
     focusFirstDown(state) {
